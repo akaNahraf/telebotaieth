@@ -1,1 +1,51 @@
+# Install required libraries
+!CMAKE_ARGS="-DLLAMA_CUBLAS=on" FORCE_CMAKE=1 pip install llama-cpp-python==0.1.78 numpy==1.23.4 --force-reinstall --upgrade --no-cache-dir --verbose
+!pip install huggingface_hub
+!pip install llama-cpp-python==0.1.78
+!pip install pyTelegramBotAPI  # Install the pyTelegramBotAPI library
+
+# Import necessary libraries
+import telebot
+from huggingface_hub import hf_hub_download
+from llama_cpp import Llama
+
+# Create a Telegram bot instance and replace 'YOUR_BOT_TOKEN' with your actual bot token
+bot = telebot.TeleBot('6685459792:AAG3diVc8K7vWesBrSD3wpojqcLhkbgMKj0')
+
+# Function to send messages to Telegram
+def send_telegram_message(chat_id, message):
+    bot.send_message(chat_id=chat_id, text=message)
+
+# Download and load the Llama model
+model_name_or_path = "TheBloke/Llama-2-13B-chat-GGML"
+model_basename = "llama-2-13b-chat.ggmlv3.q5_1.bin"
+model_path = hf_hub_download(repo_id=model_name_or_path, filename=model_basename)
+
+lcpp_llm = Llama(
+    model_path=model_path,
+    n_threads=2,
+    n_batch=512,
+    n_gpu_layers=32
+)
+
+# Define a function to generate responses and send them to Telegram
+def generate_and_send_response(chat_id, prompt):
+    response = lcpp_llm(prompt=prompt, max_tokens=256, temperature=0.5, top_p=0.95, repeat_penalty=1.2, top_k=150)
+    response_text = response["choices"][0]["text"]
+    send_telegram_message(chat_id, response_text)
+
+# Create an event handler to respond to incoming messages
+@bot.message_handler(func=lambda message: True)
+def handle_message(message):
+    chat_id = message.chat.id  # Extract the chat ID from the incoming message
+    prompt = f'''SYSTEM: You are a helpful, respectful, and honest assistant. Always answer as helpfully.
+
+USER: {message.text}
+
+ASSISTANT:
+'''
+    generate_and_send_response(chat_id, prompt)
+
+# Start the bot and keep it running
+bot.polling()
 
